@@ -9,16 +9,17 @@ import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
-public class Executor implements Watcher, Runnable, DataMonitor.DataMonitorListener {
+public class Executor implements Watcher, DataMonitor.DataMonitorListener {
+
     private final String znode;
     private final DataMonitor dataMonitor;
     private final ZooKeeper zooKeeper;
-    private final String exec;
+    private final String programToExecute;
     private Process child;
 
-    public Executor(String hostPort, String znode, String exec) throws IOException {
+    public Executor(String hostPort, String znode, String programToExecute) throws IOException {
         this.znode = znode;
-        this.exec = exec;
+        this.programToExecute = programToExecute;
         zooKeeper = new ZooKeeper(hostPort, 3000, this);
         dataMonitor = new DataMonitor(zooKeeper, znode, this);
     }
@@ -28,7 +29,7 @@ public class Executor implements Watcher, Runnable, DataMonitor.DataMonitorListe
         PropertyConfigurator.configure(log4jConfPath);
 
         if (args.length < 3) {
-            System.err.println("Wrong number of arguments. Arguments: [hostPort] [znode] [program to execute]");
+            System.err.println("Wrong number of arguments. Arguments: [hostPort] [znode] [programToExecute]");
             System.exit(2);
         }
 
@@ -37,6 +38,7 @@ public class Executor implements Watcher, Runnable, DataMonitor.DataMonitorListe
         String exec = args[2];
 
         Executor executor = null;
+
         try {
             executor = new Executor(hostPort, znode, exec);
         } catch (Exception e) {
@@ -56,34 +58,22 @@ public class Executor implements Watcher, Runnable, DataMonitor.DataMonitorListe
         }
     }
 
-    public void run() {
-        try {
-            synchronized (this) {
-                while (!dataMonitor.dead) {
-                    wait();
-                }
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void closing(int rc) {
         synchronized (this) {
             notifyAll();
         }
     }
 
-    public void exists(boolean ex) {
-        if (ex && child == null) {
-            System.out.println("--- STARTING EXTERNAL APP ---");
+    public void exists(boolean exists) {
+        if (exists && child == null) {
+            System.out.println("--- STARTING EXTERNAL APP ---\n");
             try {
-                child = Runtime.getRuntime().exec(exec);
+                child = Runtime.getRuntime().exec(programToExecute);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        } else if (!ex && child != null) {
-            System.out.println("--- CLOSING EXTERNAL APP ---");
+        } else if (!exists && child != null) {
+            System.out.println("--- CLOSING EXTERNAL APP ---\n");
             child.destroy();
             try {
                 child.waitFor();
@@ -95,17 +85,16 @@ public class Executor implements Watcher, Runnable, DataMonitor.DataMonitorListe
     }
 
     private void printTree(String path) {
-        System.out.println("---------- NODE TREE ----------");
+        System.out.println("------------ TREE ------------");
         try {
             printTreeStructure(path);
         } catch (Exception e) {
             System.out.println("Tree is empty.");
         }
-        System.out.println("-------------------------------");
+        System.out.println("------------------------------\n");
     }
 
     private void printTreeStructure(String path) throws KeeperException, InterruptedException {
-
         List<String> nodes = zooKeeper.getChildren(path, false);
         for (String node : nodes) {
             String newNode = path + "/" + node;

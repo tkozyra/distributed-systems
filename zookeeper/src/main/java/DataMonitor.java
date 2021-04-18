@@ -12,13 +12,14 @@ public class DataMonitor implements Watcher, StatCallback {
 
     private final ZooKeeper zooKeeper;
     private final String znode;
-    boolean dead;
     private final DataMonitorListener listener;
+    boolean dead;
 
     public DataMonitor(ZooKeeper zooKeeper, String znode, DataMonitorListener listener) {
         this.zooKeeper = zooKeeper;
         this.znode = znode;
         this.listener = listener;
+
         zooKeeper.exists(znode, true, this, null);
         watchChildren(znode);
     }
@@ -73,9 +74,9 @@ public class DataMonitor implements Watcher, StatCallback {
 
     private void printNumberOfChildren(ZooKeeper zooKeeper) {
         try {
-            System.out.println("--- NUMBER OF ALL CHILDREN --- ");
+            System.out.println("--- NUMBER OF ALL CHILDREN ---");
             System.out.println(zooKeeper.getAllChildrenNumber(znode));
-            System.out.println("-------------------------------");
+            System.out.println("------------------------------\n");
         } catch (Exception e) {
             e.printStackTrace();
         }
